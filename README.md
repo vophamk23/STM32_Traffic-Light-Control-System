@@ -7,7 +7,7 @@
 <div align="center">
 
 <!-- Insert Proteus simulation image here -->
-![Traffic Light Proteus Simulation](https://raw.githubusercontent.com/vophamk23/Project_STM32_Traffic-Light-Control-System/main/Traffic%20Light%20System.png)
+![Traffic Light Proteus Simulation](Report/https://raw.githubusercontent.com/vophamk23/Project_STM32_Traffic-Light-Control-System/main/Traffic%20Light%20System.png)
 
 **Complete traffic light control system using STM32F103C6 with Cooperative Scheduler**
 
