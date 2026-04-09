@@ -37,16 +37,15 @@
 This project implements a **smart traffic light control system** for a 2-way intersection using the **STM32F103C6** microcontroller. The system uses a Cooperative Scheduler for efficient task management without RTOS, an FSM (Finite State Machine) for traffic light control, and supports manual time adjustment.
 
 ### Key Features:
-- ✅ **Cooperative Scheduler with O(1) complexity** - Ultra-fast timer interrupt updates
-- ✅ **4-mode FSM** - 1 automatic mode + 3 manual adjustment modes
-- ✅ **7-segment display** - Real-time countdown
-- ✅ **3 control buttons** - MODE, MODIFY, SET
-- ✅ **Automatic time constraints** - `RED = GREEN + AMBER`
-- ✅ **Proteus Simulation** - Complete simulation for testing
+- **Cooperative Scheduler with O(1) complexity** - Ultra-fast timer interrupt updates
+- **4-mode FSM** - 1 automatic mode + 3 manual adjustment modes
+- **7-segment display** - Real-time countdown
+- **3 control buttons** - MODE, MODIFY, SET
+- **Automatic time constraints** - `RED = GREEN + AMBER`
+- **Proteus Simulation** - Complete simulation for testing
 
----
 
-## ✨ Features
+## Features
 
 ### 4 Operating Modes:
 
@@ -81,9 +80,8 @@ This project implements a **smart traffic light control system** for a 2-way int
 - **6 traffic LEDs** (3 colors × 2 roads)
 - Scan frequency: 10ms/digit = 40ms full cycle
 
----
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -156,7 +154,6 @@ SCH_Add_Task(Task_Traffic_FSM, 0, 10);     // FSM runs every 10ms
 SCH_Add_Task(Task_Update_Display, 0, 50);  // Update display every 50ms
 ```
 
----
 
 ### **2. `scheduler.c` - Cooperative Scheduler**
 
@@ -251,8 +248,6 @@ Initial: Task[0]=100, Task[1]=200
    ├─ Run Task[0]
    └─ Task[0] is re-added with Delay=100
 ```
-
----
 
 ### **3. `fsm_traffic.c` - Finite State Machine**
 
@@ -398,7 +393,7 @@ void update_button_state(void)
 
 ---
 
-## 💻 Hardware Configuration
+## Hardware Configuration
 
 <!-- Insert pin configuration diagram here -->
 ![Pin Configuration](https://raw.githubusercontent.com/vophamk23/Project_STM32_Traffic-Light-Control-System/main/C%E1%BA%A5u%20h%C3%ACnh%20ch%C3%A2n%20STM32.png)
@@ -463,7 +458,7 @@ STM32F103C6
 
 ---
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### NORMAL Mode (Automatic):
 
@@ -539,7 +534,7 @@ Invalid (auto-adjusted):
 
 ---
 
-## 🖥️ Proteus Simulation
+## Proteus Simulation
 
 ### Simulation Setup:
 
@@ -611,7 +606,7 @@ Invalid (auto-adjusted):
 
 ---
 
-## 🔄 State Transition Diagrams
+## State Transition Diagrams
 
 ### FSM Modes:
 
@@ -663,7 +658,7 @@ Invalid (auto-adjusted):
 
 ---
 
-## 📊 Performance Analysis
+## Performance Analysis
 
 ### Scheduler Performance:
 
@@ -807,13 +802,13 @@ Contributions welcome! Here's how:
 
 ---
 
-## 📄 License
+## License
 
 This project is part of coursework and provided for educational purposes.
 
 ---
 
-## 👨‍💻 Author
+## Author
 
 **vophamk23**
 - GitHub: [@vophamk23](https://github.com/vophamk23)
@@ -822,7 +817,7 @@ This project is part of coursework and provided for educational purposes.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **HCMUT** - Course materials and lab facilities
 - **STMicroelectronics** - HAL library and STM32 documentation
@@ -831,7 +826,7 @@ This project is part of coursework and provided for educational purposes.
 
 ---
 
-## 📚 References
+## References
 
 ### Datasheets:
 - [STM32F103C6 Datasheet](https://www.st.com/resource/en/datasheet/stm32f103c6.pdf)
