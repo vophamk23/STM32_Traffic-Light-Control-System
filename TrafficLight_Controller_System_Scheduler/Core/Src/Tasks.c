@@ -6,6 +6,7 @@
  */
 
 #include "tasks.h"
+#include "i2c-lcd.h"
 
 /* ============================================================================
  * TASK 1: BUTTON SCANNING
@@ -90,8 +91,10 @@ void Task_Traffic_FSM(void)
 void Task_Update_Display(void)
 {
     // Cập nhật LED đơn (đèn giao thông)
-    update_led_display();    // Hàm từ led_display.c
+    update_led_display();
 
     // Cập nhật LED 7 đoạn (đồng hồ đếm ngược)
-    update_7seg_display();   // Hàm từ 7segment_display.c
+    update_7seg_display();
+
+    lcd_update_display();
 }

@@ -16,6 +16,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "i2c-lcd.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -81,6 +82,7 @@ int main(void)
 
   // 2. Khởi tạo hệ thống đèn giao thông
   traffic_init();
+  lcd_init();
 
   /* ========== CORE TASKS - BẮT BUỘC PHẢI CÓ =============== */
 

@@ -10,6 +10,7 @@ C_SRCS += \
 ../Core/Src/button.c \
 ../Core/Src/fsm_traffic.c \
 ../Core/Src/global.c \
+../Core/Src/i2c-lcd.c \
 ../Core/Src/led_display.c \
 ../Core/Src/main.c \
 ../Core/Src/scheduler.c \
@@ -26,6 +27,7 @@ OBJS += \
 ./Core/Src/button.o \
 ./Core/Src/fsm_traffic.o \
 ./Core/Src/global.o \
+./Core/Src/i2c-lcd.o \
 ./Core/Src/led_display.o \
 ./Core/Src/main.o \
 ./Core/Src/scheduler.o \
@@ -42,6 +44,7 @@ C_DEPS += \
 ./Core/Src/button.d \
 ./Core/Src/fsm_traffic.d \
 ./Core/Src/global.d \
+./Core/Src/i2c-lcd.d \
 ./Core/Src/led_display.d \
 ./Core/Src/main.d \
 ./Core/Src/scheduler.d \

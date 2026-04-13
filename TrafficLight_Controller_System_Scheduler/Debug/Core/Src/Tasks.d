@@ -25,7 +25,7 @@ Core/Src/Tasks.o: ../Core/Src/Tasks.c ../Core/Inc/tasks.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h \
  ../Core/Inc/button.h ../Core/Inc/fsm_traffic.h ../Core/Inc/global.h \
  ../Core/Inc/led_display.h ../Core/Inc/7segment_display.h \
- ../Core/Inc/scheduler.h
+ ../Core/Inc/scheduler.h ../Core/Inc/i2c-lcd.h
 
 ../Core/Inc/tasks.h:
 
@@ -90,3 +90,5 @@ Core/Src/Tasks.o: ../Core/Src/Tasks.c ../Core/Inc/tasks.h \
 ../Core/Inc/7segment_display.h:
 
 ../Core/Inc/scheduler.h:
+
+../Core/Inc/i2c-lcd.h:
