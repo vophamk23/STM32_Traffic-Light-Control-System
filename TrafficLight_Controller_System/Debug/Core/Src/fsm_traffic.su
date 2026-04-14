@@ -1,0 +1,8 @@
+fsm_traffic.c:39:6:traffic_init	8	static
+fsm_traffic.c:95:6:traffic_run	8	static
+fsm_traffic.c:143:6:update_button_state	16	static
+fsm_traffic.c:192:6:fsm_normal_mode	8	static
+fsm_traffic.c:286:6:fsm_red_modify_mode	8	static
+fsm_traffic.c:329:6:fsm_amber_modify_mode	8	static
+fsm_traffic.c:370:6:fsm_green_modify_mode	8	static
+fsm_traffic.c:424:5:auto_adjust_duration	16	static

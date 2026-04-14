@@ -1,0 +1,7 @@
+led_display.c:22:6:update_led_display	8	static
+led_display.c:88:6:turn_off_all_leds	8	static
+led_display.c:113:6:set_traffic_led	24	static
+led_display.c:143:6:displayLED_RED	16	static
+led_display.c:164:6:displayLED_YELLOW	16	static
+led_display.c:184:6:displayLED_GREEN	16	static
+led_display.c:215:6:handle_led_blinking	16	static

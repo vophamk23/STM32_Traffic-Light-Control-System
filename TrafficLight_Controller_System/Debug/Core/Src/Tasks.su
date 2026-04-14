@@ -1,0 +1,3 @@
+Tasks.c:31:6:Task_Button_Scan	8	static
+Tasks.c:60:6:Task_Traffic_FSM	8	static
+Tasks.c:90:6:Task_Update_Display	8	static
