@@ -1,228 +1,117 @@
 /*
- * ============================================================================
- * fsm_traffic.c - HỆ THỐNG ĐIỀU KHIỂN ĐÈN GIAO THÔNG
- * ============================================================================
+ * fsm_traffic.c - Điều khiển đèn giao thông 2 đường, 4 chế độ
  *
- * TỔNG QUAN:
- * Bộ điều khiển đèn giao thông cho giao lộ 2 chiều với 4 chế độ:
+ * Mode 1 (Normal): Tự động chuyển đèn theo chu kỳ
+ * Mode 2/3/4: Điều chỉnh thời gian ĐỎ / VÀNG / XANH
  *
- * CHẾ ĐỘ 1: Hoạt động tự động (chuyển đèn tự động)
- * CHẾ ĐỘ 2: Điều chỉnh thời gian ĐỎ
- * CHẾ ĐỘ 3: Điều chỉnh thời gian VÀNG
- * CHẾ ĐỘ 4: Điều chỉnh thời gian XANH
- *
- * RÀNG BUỘC: thời_gian_ĐỎ = thời_gian_XANH + thời_gian_VÀNG
- *
- * PHẦN CỨNG:
- * - Nút 1 (MODE): Chuyển đổi giữa các chế độ
- * - Nút 2 (MODIFY/INC): Tăng giá trị thời gian
- * - Nút 3 (SET): Lưu giá trị và quay về chế độ tự động
- * - LED: 6 LED cho đèn giao thông (3 màu x 2 đường)
- * - LED 7 đoạn: Hiển thị đồng hồ đếm ngược
- *
- * TỐC ĐỘ CẬP NHẬT: 10ms (100Hz)
- * ============================================================================
+ * Nút: MODE = chuyển chế độ, MODIFY = tăng giá trị, SET = lưu & về Mode 1
+ * Ràng buộc: duration_RED = duration_GREEN + duration_AMBER
  */
 
 #include "fsm_traffic.h"
 
-/* ============================================================================
- * KHỞI TẠO HỆ THỐNG
- * ============================================================================ */
-
-/**
- * traffic_init() - Khởi tạo toàn bộ hệ thống giao thông
- *
- * Đặt thời gian mặc định, chế độ, trạng thái và trạng thái nút nhấn
- * Được gọi một lần trong main() trước khi vào vòng lặp chính
- */
+/* ============================================================
+ * KHỞI TẠO
+ * ============================================================ */
 void traffic_init(void)
 {
-	// Thời gian mặc định
-	duration_RED = 5;      // Đèn đỏ: 5 giây
-	duration_AMBER = 2;    // Đèn vàng: 2 giây
-	duration_GREEN = 3;    // Đèn xanh: 3 giây
+    duration_RED   = 5;
+    duration_AMBER = 2;
+    duration_GREEN = 3;
 
-	// Chế độ và trạng thái ban đầu
-    current_mode = MODE_1_NORMAL;
-    traffic_state = INIT;  // Sẽ chuyển sang RED_GREEN khi chạy lần đầu
+    current_mode  = MODE_1_NORMAL;
+    traffic_state = INIT;
 
-    // Khởi tạo bộ đếm
     counter_road1 = 0;
     counter_road2 = 0;
 
-    // Tắt tất cả LED
     turn_off_all_leds();
 
-    // Khởi tạo phát hiện cạnh nút nhấn
-    prevState[0] = BTN_RELEASE;     // Nút MODE
-    prevState[1] = BTN_RELEASE;     // Nút MODIFY
-    prevState[2] = BTN_RELEASE;     // Nút SET
+    for (int i = 0; i < 3; i++) {
+        prevState[i] = BTN_RELEASE;
+        currState[i] = BTN_RELEASE;
+    }
 
-    currState[0] = BTN_RELEASE;
-    currState[1] = BTN_RELEASE;
-    currState[2] = BTN_RELEASE;
-
-    // Khởi tạo nhấp nháy LED
-    // Chu kỳ: 0.25s BẬT + 0.25s TẮT = 0.5s
     blink_counter = 0;
-    flag_blink = 0;
+    flag_blink    = 0;
 
-    // Reset cờ LED
-    flagRed[0] = flagRed[1] = 0;
-    flagGreen[0] = flagGreen[1] = 0;
+    flagRed[0]    = flagRed[1]    = 0;
+    flagGreen[0]  = flagGreen[1]  = 0;
     flagYellow[0] = flagYellow[1] = 0;
 
-    // Reset biến tạm
     temp_duration = 0;
 }
 
-/* ============================================================================
- * HÀM CHÍNH - TIM ĐẬP CỦA HỆ THỐNG
- * ============================================================================ */
-
-/**
- * traffic_run() - Hàm chính được gọi mỗi 10ms
- *
- * THỨ TỰ THỰC THI (QUAN TRỌNG):
- * 1. update_button_state()   → Đọc trạng thái nút nhấn
- * 2. fsm_*_mode()            → Xử lý logic theo chế độ hiện tại
- * 3. update_led_display()    → Cập nhật phần cứng LED
- * 4. update_7seg_display()   → Cập nhật màn hình 7 đoạn
- *
- * TỐC ĐỘ GỌI: 100 lần/giây = 100Hz
- */
+/* ============================================================
+ * HÀM CHÍNH - gọi mỗi 10ms bởi Task_Traffic_FSM
+ * ============================================================ */
 void traffic_run(void)
 {
-	// Bước 1: Đọc trạng thái nút nhấn
-	update_button_state();
+    // Bước 1: Đọc trạng thái nút nhấn
+    update_button_state();
 
     // Bước 2: Xử lý logic theo chế độ
+    // (Display được cập nhật riêng bởi Task_Update_Display)
     switch(current_mode) {
-        case MODE_1_NORMAL:
-            fsm_normal_mode();    // Chế độ tự động
-            break;
-
-        case MODE_2_RED_MODIFY:
-            fsm_red_modify_mode();    // Điều chỉnh thời gian ĐỎ
-            break;
-
-        case MODE_3_AMBER_MODIFY:
-            fsm_amber_modify_mode();  // Điều chỉnh thời gian VÀNG
-            break;
-
-        case MODE_4_GREEN_MODIFY:
-            fsm_green_modify_mode();  // Điều chỉnh thời gian XANH
-            break;
+        case MODE_1_NORMAL:        fsm_normal_mode();       break;
+        case MODE_2_RED_MODIFY:    fsm_red_modify_mode();   break;
+        case MODE_3_AMBER_MODIFY:  fsm_amber_modify_mode(); break;
+        case MODE_4_GREEN_MODIFY:  fsm_green_modify_mode(); break;
     }
-
-    // Bước 3: Cập nhật phần cứng LED
-    update_led_display();
-
-    // Bước 4: Cập nhật màn hình 7 đoạn
-    update_7seg_display();
 }
 
-/* ============================================================================
+/* ============================================================
  * PHÁT HIỆN CẠNH NÚT NHẤN
- * ============================================================================ */
-
-/**
- * update_button_state() - Cập nhật trạng thái nút nhấn và phát hiện sự kiện
- *
- * PHÁT HIỆN CẠNH:
- * Phát hiện cạnh lên (nút vừa được nhấn):
- *   prevState == RELEASE && currState == PRESS → XỬ LÝ SỰ KIỆN
- *
- * NGĂN CHẶN:
- * - Kích hoạt nhiều lần khi giữ nút
- * - Mỗi lần nhấn = chính xác một sự kiện
- *
- * GỌI: Mỗi 10ms trong traffic_run()
- */
+ * Đọc cờ từ button.c → cập nhật prevState/currState
+ * prevState=RELEASE + currState=PRESS → sự kiện nhấn 1 lần
+ * ============================================================ */
 void update_button_state(void)
 {
-    for(int i = 0; i < 3; i++) {
-        // Lưu trạng thái hiện tại làm trước đó
+    for (int i = 0; i < 3; i++) {
         prevState[i] = currState[i];
-
-        // Đọc trạng thái mới từ phần cứng
-        switch(i) {
-            case 0:  // Nút MODE
-                if(isButton1Pressed()) {
-                    currState[i] = BTN_PRESS;
-                } else {
-                    currState[i] = BTN_RELEASE;
-                }
-                break;
-
-            case 1:  // Nút MODIFY
-                if(isButton2Pressed()) {
-                    currState[i] = BTN_PRESS;
-                } else {
-                    currState[i] = BTN_RELEASE;
-                }
-                break;
-
-            case 2:  // Nút SET
-                if(isButton3Pressed()) {
-                    currState[i] = BTN_PRESS;
-                } else {
-                    currState[i] = BTN_RELEASE;
-                }
-                break;
+        switch (i) {
+            case 0: currState[i] = isButton1Pressed() ? BTN_PRESS : BTN_RELEASE; break;
+            case 1: currState[i] = isButton2Pressed() ? BTN_PRESS : BTN_RELEASE; break;
+            case 2: currState[i] = isButton3Pressed() ? BTN_PRESS : BTN_RELEASE; break;
         }
     }
 }
 
+/* Macro phát hiện cạnh lên (nút vừa nhấn) */
+#define JUST_PRESSED(i) (currState[i] == BTN_PRESS && prevState[i] == BTN_RELEASE)
 
-
-/* ============================================================================
- * CHẾ ĐỘ FSM 1 - HOẠT ĐỘNG TỰ ĐỘNG
- * ============================================================================ */
-
-/**
- * fsm_normal_mode() - Máy trạng thái cho hoạt động tự động
- *
- * CHU KỲ GIAO THÔNG (4 trạng thái):
- *   INIT → RED_GREEN → RED_AMBER → GREEN_RED → AMBER_RED → (lặp lại)
- *
- * Cập nhật mỗi 1 giây (đếm ngược counter_road1/2)
- */
+/* ============================================================
+ * MODE 1 - TỰ ĐỘNG
+ * Chu kỳ: INIT → RED_GREEN → RED_AMBER → GREEN_RED → AMBER_RED → (lặp)
+ * Cập nhật mỗi giây (đếm TIMER_CYCLE tick = 100 x 10ms)
+ * ============================================================ */
 void fsm_normal_mode(void)
 {
     static int timer_counter = 0;
 
-    // Xử lý nút MODE - chuyển sang chế độ điều chỉnh
-    if(currState[0] == BTN_PRESS && prevState[0] == BTN_RELEASE) {
-        current_mode = MODE_2_RED_MODIFY;
+    // Nhấn MODE → vào chế độ chỉnh thời gian ĐỎ
+    if (JUST_PRESSED(0)) {
+        current_mode  = MODE_2_RED_MODIFY;
         temp_duration = duration_RED;
         turn_off_all_leds();
         return;
     }
 
-    // Đếm chu kỳ timer
-    timer_counter++;
-    if(timer_counter < TIMER_CYCLE) {
-        return;  // Chưa đủ thời gian
-    }
-    timer_counter = 0;  // Reset cho chu kỳ tiếp theo
+    // Chỉ cập nhật mỗi 1 giây
+    if (++timer_counter < TIMER_CYCLE) return;
+    timer_counter = 0;
 
-    // FSM giao thông - cập nhật mỗi giây
-    switch(traffic_state) {
+    switch (traffic_state) {
         case INIT:
-            // Khởi tạo trạng thái đầu tiên
             traffic_state = RED_GREEN;
             counter_road1 = duration_RED;
             counter_road2 = duration_GREEN;
             break;
 
         case RED_GREEN:
-            // Đường 1: ĐỎ, Đường 2: XANH
             counter_road1--;
             counter_road2--;
-
-            if(counter_road2 <= 0) {
+            if (counter_road2 <= 0) {
                 traffic_state = RED_AMBER;
                 counter_road1 = duration_AMBER;
                 counter_road2 = duration_AMBER;
@@ -230,11 +119,9 @@ void fsm_normal_mode(void)
             break;
 
         case RED_AMBER:
-            // Đường 1: ĐỎ, Đường 2: VÀNG
             counter_road1--;
             counter_road2--;
-
-            if(counter_road2 <= 0) {
+            if (counter_road2 <= 0) {
                 traffic_state = GREEN_RED;
                 counter_road1 = duration_GREEN;
                 counter_road2 = duration_RED;
@@ -242,11 +129,9 @@ void fsm_normal_mode(void)
             break;
 
         case GREEN_RED:
-            // Đường 1: XANH, Đường 2: ĐỎ
             counter_road1--;
             counter_road2--;
-
-            if(counter_road1 <= 0) {
+            if (counter_road1 <= 0) {
                 traffic_state = AMBER_RED;
                 counter_road1 = duration_AMBER;
                 counter_road2 = duration_AMBER;
@@ -254,11 +139,9 @@ void fsm_normal_mode(void)
             break;
 
         case AMBER_RED:
-            // Đường 1: VÀNG, Đường 2: ĐỎ
             counter_road1--;
             counter_road2--;
-
-            if(counter_road2 <= 0) {
+            if (counter_road2 <= 0) {
                 traffic_state = RED_GREEN;
                 counter_road1 = duration_RED;
                 counter_road2 = duration_GREEN;
@@ -266,281 +149,120 @@ void fsm_normal_mode(void)
             break;
     }
 
-    // Ngăn bộ đếm âm
-    if(counter_road1 < 0) counter_road1 = 0;
-    if(counter_road2 < 0) counter_road2 = 0;
+    if (counter_road1 < 0) counter_road1 = 0;
+    if (counter_road2 < 0) counter_road2 = 0;
 }
 
-/* ============================================================================
- * CHẾ ĐỘ FSM 2 - ĐIỀU CHỈNH THỜI GIAN ĐỎ
- * ============================================================================ */
-
-/**
- * fsm_red_modify_mode() - Điều chỉnh thời gian đèn ĐỎ
- *
- * - Nhấp nháy LED ĐỎ
- * - Nút MODE: Chuyển sang CHẾ ĐỘ 3 (điều chỉnh VÀNG)
- * - Nút MODIFY: Tăng temp_duration (1→99→1)
- * - Nút SET: Lưu và tự động điều chỉnh thời gian khác
- */
+/* ============================================================
+ * MODE 2 - CHỈNH THỜI GIAN ĐỎ
+ * ============================================================ */
 void fsm_red_modify_mode(void)
 {
-    // Nút MODE - chuyển sang điều chỉnh VÀNG
-    if(currState[0] == BTN_PRESS && prevState[0] == BTN_RELEASE) {
-        current_mode = MODE_3_AMBER_MODIFY;
+    if (JUST_PRESSED(0)) {  // MODE → sang chỉnh VÀNG
+        current_mode  = MODE_3_AMBER_MODIFY;
         temp_duration = duration_AMBER;
         return;
     }
-
-    // Nút MODIFY - tăng giá trị
-    if(currState[1] == BTN_PRESS && prevState[1] == BTN_RELEASE) {
-        temp_duration++;
-        if(temp_duration > 99) {
-            temp_duration = 1;
-        }
+    if (JUST_PRESSED(1)) {  // MODIFY → tăng giá trị
+        if (++temp_duration > 99) temp_duration = 1;
     }
-
-    // Nút SET - lưu và tự động điều chỉnh
-    if(currState[2] == BTN_PRESS && prevState[2] == BTN_RELEASE) {
+    if (JUST_PRESSED(2)) {  // SET → lưu & về Mode 1
         duration_RED = temp_duration;
-        auto_adjust_duration(0);  // 0 = ĐỎ đã được sửa
-        current_mode = MODE_1_NORMAL;
+        auto_adjust_duration(0);
+        current_mode  = MODE_1_NORMAL;
         traffic_state = INIT;
         turn_off_all_leds();
         return;
     }
-
-    // Nhấp nháy LED ĐỎ
-    handle_led_blinking(0);  // 0 = ĐỎ
+    handle_led_blinking(0);  // Nhấp nháy đèn ĐỎ
 }
 
-/* ============================================================================
- * CHẾ ĐỘ FSM 3 - ĐIỀU CHỈNH THỜI GIAN VÀNG
- * ============================================================================ */
-
-/**
- * fsm_amber_modify_mode() - Điều chỉnh thời gian đèn VÀNG
- *
- * - Nhấp nháy LED VÀNG
- * - Nút MODE: Chuyển sang CHẾ ĐỘ 4 (điều chỉnh XANH)
- * - Nút MODIFY: Tăng temp_duration
- * - Nút SET: Lưu và tự động điều chỉnh
- */
+/* ============================================================
+ * MODE 3 - CHỈNH THỜI GIAN VÀNG
+ * ============================================================ */
 void fsm_amber_modify_mode(void)
 {
-    // Nút MODE - chuyển sang điều chỉnh XANH
-    if(currState[0] == BTN_PRESS && prevState[0] == BTN_RELEASE) {
-        current_mode = MODE_4_GREEN_MODIFY;
+    if (JUST_PRESSED(0)) {  // MODE → sang chỉnh XANH
+        current_mode  = MODE_4_GREEN_MODIFY;
         temp_duration = duration_GREEN;
         return;
     }
-
-    // Nút MODIFY - tăng giá trị
-    if(currState[1] == BTN_PRESS && prevState[1] == BTN_RELEASE) {
-        temp_duration++;
-        if(temp_duration > 99) temp_duration = 1;
+    if (JUST_PRESSED(1)) {
+        if (++temp_duration > 99) temp_duration = 1;
     }
-
-    // Nút SET - lưu và tự động điều chỉnh
-    if(currState[2] == BTN_PRESS && prevState[2] == BTN_RELEASE) {
+    if (JUST_PRESSED(2)) {
         duration_AMBER = temp_duration;
-        auto_adjust_duration(1);  // 1 = VÀNG đã được sửa
-        current_mode = MODE_1_NORMAL;
+        auto_adjust_duration(1);
+        current_mode  = MODE_1_NORMAL;
         traffic_state = INIT;
         turn_off_all_leds();
         return;
     }
-
-    // Nhấp nháy LED VÀNG
-    handle_led_blinking(1);  // 1 = VÀNG
+    handle_led_blinking(1);  // Nhấp nháy đèn VÀNG
 }
 
-/* ============================================================================
- * CHẾ ĐỘ FSM 4 - ĐIỀU CHỈNH THỜI GIAN XANH
- * ============================================================================ */
-
-/**
- * fsm_green_modify_mode() - Điều chỉnh thời gian đèn XANH
- *
- * - Nhấp nháy LED XANH
- * - Nút MODE: Quay về CHẾ ĐỘ 1 (không lưu)
- * - Nút MODIFY: Tăng temp_duration
- * - Nút SET: Lưu và tự động điều chỉnh
- */
+/* ============================================================
+ * MODE 4 - CHỈNH THỜI GIAN XANH
+ * ============================================================ */
 void fsm_green_modify_mode(void)
 {
-    // Nút MODE - quay về chế độ tự động (không lưu)
-    if(currState[0] == BTN_PRESS && prevState[0] == BTN_RELEASE) {
-        current_mode = MODE_1_NORMAL;
+    if (JUST_PRESSED(0)) {  // MODE → về Mode 1 (không lưu)
+        current_mode  = MODE_1_NORMAL;
         traffic_state = INIT;
         turn_off_all_leds();
         return;
     }
-
-    // Nút MODIFY - tăng giá trị
-    if(currState[1] == BTN_PRESS && prevState[1] == BTN_RELEASE) {
-        temp_duration++;
-        if(temp_duration > 99) temp_duration = 1;
+    if (JUST_PRESSED(1)) {
+        if (++temp_duration > 99) temp_duration = 1;
     }
-
-    // Nút SET - lưu và tự động điều chỉnh
-    if(currState[2] == BTN_PRESS && prevState[2] == BTN_RELEASE) {
+    if (JUST_PRESSED(2)) {
         duration_GREEN = temp_duration;
-        auto_adjust_duration(2);  // 2 = XANH đã được sửa
-        current_mode = MODE_1_NORMAL;
+        auto_adjust_duration(2);
+        current_mode  = MODE_1_NORMAL;
         traffic_state = INIT;
         turn_off_all_leds();
         return;
     }
-
-    // Nhấp nháy LED XANH
-    handle_led_blinking(2);  // 2 = XANH
+    handle_led_blinking(2);  // Nhấp nháy đèn XANH
 }
 
-/* ============================================================================
- * HÀM TỰ ĐỘNG ĐIỀU CHỈNH THỜI GIAN
- * ============================================================================ */
-
-/**
- * auto_adjust_duration() - Tự động điều chỉnh các thời gian khác để duy trì ràng buộc
- *
- * RÀNG BUỘC: thời_gian_ĐỎ = thời_gian_XANH + thời_gian_VÀNG
- *
- * CHIẾN LƯỢC:
- * - Sửa ĐỎ (0): Giữ VÀNG, tính XANH = ĐỎ - VÀNG
- * - Sửa VÀNG (1): Cập nhật XANH = VÀNG + 4, tính ĐỎ = XANH + VÀNG
- * - Sửa XANH (2): Giữ VÀNG, tính ĐỎ = XANH + VÀNG
- *
- * THAM SỐ:
- *   modified_light: Đèn nào đã được sửa
- *                   0 = ĐỎ, 1 = VÀNG, 2 = XANH
- *
- * TRẢ VỀ:
- *   1: Đã điều chỉnh hoặc reset
- *   0: Không cần điều chỉnh (đã hợp lệ)
- *
- * MẶC ĐỊNH KHI RESET: ĐỎ=5, XANH=3, VÀNG=2
- */
+/* ============================================================
+ * TỰ ĐỘNG ĐIỀU CHỈNH để duy trì: RED = GREEN + AMBER
+ *   modified_light: 0=ĐỎ vừa sửa, 1=VÀNG vừa sửa, 2=XANH vừa sửa
+ * Nếu giá trị tính được nằm ngoài [1,99] → reset mặc định (5/2/3)
+ * ============================================================ */
 int auto_adjust_duration(int modified_light)
 {
-    // Kiểm tra nếu ràng buộc đã được thỏa mãn
-    if(duration_RED == (duration_GREEN + duration_AMBER)) {
-        return 0;  // Không cần điều chỉnh
-    }
+    // Không cần điều chỉnh nếu ràng buộc đã thỏa
+    if (duration_RED == duration_GREEN + duration_AMBER) return 0;
 
-    switch(modified_light) {
-        case 0:  // ĐỎ đã được sửa
-            // Chiến lược: Giữ VÀNG, tính XANH
+    switch (modified_light) {
+        case 0:  // Sửa ĐỎ → giữ VÀNG, tính XANH = ĐỎ - VÀNG
             duration_GREEN = duration_RED - duration_AMBER;
-
-            // Kiểm tra XANH hợp lệ
-            if(duration_GREEN < 1 || duration_GREEN > 99) {
-                duration_GREEN = duration_RED - duration_AMBER;
-                duration_AMBER = duration_RED - duration_GREEN;
-
-                // Kiểm tra VÀNG hợp lệ
-                if(duration_AMBER < 1 || duration_AMBER > 99) {
-                    // Reset về mặc định
-                    duration_RED = 5;
-                    duration_GREEN = 3;
-                    duration_AMBER = 2;
-                }
+            if (duration_GREEN < 1 || duration_GREEN > 99) {
+                duration_RED = 5; duration_AMBER = 2; duration_GREEN = 3;
             }
             break;
 
-        case 1:  // VÀNG đã được sửa
-            // Chiến lược: XANH = VÀNG + 4, ĐỎ = XANH + VÀNG
+        case 1:  // Sửa VÀNG → XANH = VÀNG + 4, ĐỎ = XANH + VÀNG
             duration_GREEN = duration_AMBER + 4;
-            duration_RED = duration_GREEN + duration_AMBER;
-
-            // Kiểm tra nếu ĐỎ vượt giới hạn
-            if(duration_RED > 99) {
-                // Điều chỉnh để nằm trong giới hạn
-                duration_AMBER = (99 - 3) / 2;  // = 48
-                duration_GREEN = duration_AMBER + 3;  // = 51
-                duration_RED = 99;
-
-                if(duration_AMBER < 1) {
-                    // Reset nếu không hợp lệ
-                    duration_RED = 5;
-                    duration_GREEN = 3;
-                    duration_AMBER = 2;
-                }
-            }
-
-            // Kiểm tra XANH hợp lệ
-            if(duration_GREEN < 1 || duration_GREEN > 99) {
-                duration_RED = 5;
-                duration_GREEN = 3;
-                duration_AMBER = 2;
+            duration_RED   = duration_GREEN + duration_AMBER;
+            if (duration_RED > 99 || duration_GREEN < 1 || duration_GREEN > 99) {
+                duration_RED = 5; duration_AMBER = 2; duration_GREEN = 3;
             }
             break;
 
-        case 2:  // XANH đã được sửa
-            // Chiến lược: Giữ VÀNG, tính ĐỎ
+        case 2:  // Sửa XANH → giữ VÀNG, tính ĐỎ = XANH + VÀNG
             duration_RED = duration_GREEN + duration_AMBER;
-
-            // Kiểm tra nếu ĐỎ vượt giới hạn
-            if(duration_RED > 99) {
-                // Giảm VÀNG để vừa
+            if (duration_RED > 99) {
                 duration_AMBER = 99 - duration_GREEN;
-                duration_RED = 99;
-
-                // Kiểm tra VÀNG hợp lệ
-                if(duration_AMBER < 1) {
-                    // Reset nếu không hợp lệ
-                    duration_RED = 5;
-                    duration_GREEN = 3;
-                    duration_AMBER = 2;
+                duration_RED   = 99;
+                if (duration_AMBER < 1) {
+                    duration_RED = 5; duration_AMBER = 2; duration_GREEN = 3;
                 }
             }
             break;
     }
 
-    return 1;  // Hoàn thành điều chỉnh
+    return 1;
 }
-
-
-/* ============================================================================
- * SƠ ĐỒ HỆ THỐNG
- * ============================================================================ */
-
-/*
- * CHUYỂN ĐỔI CHẾ ĐỘ:
- *
- *    CHẾ ĐỘ 1 (Tự động) ──[Nút MODE]──> CHẾ ĐỘ 2 (Điều chỉnh ĐỎ)
- *                                              │
- *                                        [Nút MODE]
- *                                              │
- *                                              ↓
- *                                        CHẾ ĐỘ 3 (Điều chỉnh VÀNG)
- *                                              │
- *                                        [Nút MODE]
- *                                              │
- *                                              ↓
- *                                        CHẾ ĐỘ 4 (Điều chỉnh XANH)
- *                                              │
- *                                   [Nút MODE hoặc SET]
- *                                              │
- *                                              ↓
- *    CHẾ ĐỘ 1 (Tự động) <───────────────────┘
- *
- *
- * CHU KỲ GIAO THÔNG (CHẾ ĐỘ 1):
- *
- *    INIT → RED_GREEN → RED_AMBER → GREEN_RED → AMBER_RED → (lặp lại)
- *           Đường1: ĐỎ   Đường1: ĐỎ   Đường1: XANH  Đường1: VÀNG
- *           Đường2: XANH Đường2: VÀNG Đường2: ĐỎ    Đường2: ĐỎ
- *
- *
- * DÒNG THỜI GIAN PHÁT HIỆN CẠNH:
- *
- *    Thời gian│ Vật lý  │ prevState │ currState │ Phát hiện│ Hành động
- *    ─────────┼─────────┼───────────┼───────────┼──────────┼───────────
- *    t=0ms    │  TẮT    │  RELEASE  │  RELEASE  │    -     │   -
- *    t=10ms   │  TẮT    │  RELEASE  │  RELEASE  │    -     │   -
- *    t=20ms   │  NHẤN   │  RELEASE  │  PRESS    │ CẠNH LÊN✓│ XỬ LÝ
- *    t=30ms   │  GIỮ    │  PRESS    │  PRESS    │    -     │ Bỏ qua
- *    t=40ms   │  GIỮ    │  PRESS    │  PRESS    │    -     │ Bỏ qua
- *    t=50ms   │  THẢ    │  PRESS    │  RELEASE  │ CẠNH XUỐNG│Bỏ qua
- */

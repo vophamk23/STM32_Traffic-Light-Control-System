@@ -1,4 +1,4 @@
-7segment_display.c:16:6:update_7seg_display	8	static
-7segment_display.c:54:6:display_7seg_left	24	static
-7segment_display.c:97:6:display_7seg_right	24	static
-7segment_display.c:126:6:display_7seg_mode	16	static
+7segment_display.c:13:6:update_7seg_display	8	static
+7segment_display.c:31:6:display_7seg_left	24	static
+7segment_display.c:54:6:display_7seg_right	24	static
+7segment_display.c:76:6:display_7seg_mode	16	static
